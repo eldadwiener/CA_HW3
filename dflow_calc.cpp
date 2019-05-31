@@ -14,7 +14,7 @@ typedef struct regInfo {
 
 typedef struct cmdInfo {
 	int deptime;
-	int selftime;
+	int totaltime;
 	int dep1 = -1;
 	int dep2 = -1;
 } cmdInfo;
@@ -24,6 +24,7 @@ public:
 	ProgCtxClss(const unsigned int opsLatency[], InstInfo progTrace[], int numOfInsts);
 private:
 	void build_cmds();
+    int getDepTotalTime(int dep1, int dep2);
 	const unsigned int* m_opsLatency;
 	InstInfo* m_progTrace;
 	int m_numOfInsts;
@@ -67,12 +68,24 @@ void ProgCtxClss::build_cmds() {
 	for (int i = 0; i < m_numOfInsts; ++i) {
 		InstInfo& currCmd = m_progTrace[i];
 		// update cmd node data
-		cmds_vec[i].selftime = m_opsLatency[currCmd.opcode];
+		int selftime = m_opsLatency[currCmd.opcode];
 		cmds_vec[i].dep1 = regs_vec[currCmd.src1Idx].used_by;
 		cmds_vec[i].dep2 = regs_vec[currCmd.src2Idx].used_by;
 		regs_vec[currCmd.dstIdx].used_by = i;
-		cmds_vec[i].deptime = getDepTime(i);
+		cmds_vec[i].deptime = getDepTotalTime(cmds_vec[i].dep1, cmds_vec[i].dep2);
+        cmds_vec[i].totaltime = cmds_vec[i].deptime + selftime;
 		//check for false dependency
 
 	}
+}
+
+int ProgCtxClss::getDepTotalTime(int dep1, int dep2)
+{
+    int dep1time(0), dep2time(0);
+    if (dep1 >= 0)
+        dep1time = cmds_vec[dep1].totaltime;
+    if (dep2 >= 0)
+        dep2time = cmds_vec[dep2].totaltime;
+    // return the max dependency time
+    return (dep1time > dep2time) ? dep1time : dep2time;
 }
