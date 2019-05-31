@@ -26,10 +26,12 @@ private:
 	void build_cmds();
     int getDepTotalTime(int dep1, int dep2);
 	const unsigned int* m_opsLatency;
+	void update_false_dep(int index);
 	InstInfo* m_progTrace;
 	int m_numOfInsts;
 	vector <regInfo> regs_vec;
 	vector <cmdInfo> cmds_vec;
+	int m_totalRunTime;
 };
 
 ProgCtx analyzeProg(const unsigned int opsLatency[],  InstInfo progTrace[],  int numOfInsts) {
@@ -58,7 +60,7 @@ int getProgDepth(ProgCtx ctx) {
 
 ProgCtxClss::ProgCtxClss(const unsigned int opsLatency[], InstInfo progTrace[], int numOfInsts) :
 	m_opsLatency(opsLatency), m_progTrace(progTrace), m_numOfInsts(numOfInsts),
-	regs_vec(REGS_NUM), cmds_vec(numOfInsts) {
+	regs_vec(REGS_NUM), cmds_vec(numOfInsts), m_totalRunTime(0) {
 	build_cmds();
 }
 /*
@@ -75,7 +77,26 @@ void ProgCtxClss::build_cmds() {
 		cmds_vec[i].deptime = getDepTotalTime(cmds_vec[i].dep1, cmds_vec[i].dep2);
         cmds_vec[i].totaltime = cmds_vec[i].deptime + selftime;
 		//check for false dependency
+		update_false_dep(i);
+		// update total run time (if neede)
+		if (m_totalRunTime < cmds_vec[i].totaltime) {
+			m_totalRunTime = cmds_vec[i].totaltime;
+		}
+	}
+}
 
+void ProgCtxClss::update_false_dep(int index) {
+	// check if it's the first cmd
+	if (index == 0) {
+		return;
+	}
+	InstInfo& currCmd = m_progTrace[index];
+	InstInfo& prevCmd = m_progTrace[index-1];
+	//check for WAR or WAW
+	if ((currCmd.dstIdx == prevCmd.dstIdx)//WAW
+		|| (currCmd.dstIdx == prevCmd.src1Idx || currCmd.dstIdx == prevCmd.src2Idx))//WAR
+	{
+		regs_vec[currCmd.dstIdx].falseDepnedNum++;
 	}
 }
 
